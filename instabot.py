@@ -78,7 +78,7 @@ def get_recent_media_liked():
     media_info=requests.get(request_url).json()
     if media_info["meta"]["code"]==200:
         url=media_info["data"][0]["images"]["standard_resolution"]["url"]+".jpeg"
-        url_id=media_info["data"][0]["created_time"]
+        url_id=media_info["data"][0]["id"]
         urllib.urlretrieve(url,url_id)
         print "Your recently liked image downloaded!"
 
@@ -88,15 +88,72 @@ def get_comments_on_your_recentpost():
     user_info = requests.get(request_url).json()
     if user_info["meta"]["code"] == 200:
         media_id=user_info["data"][0]["id"]
-        request_url1=base_url+"media/%s/comments?access_token==%s"%(media_id,ACCESS_TOKEN)
+        request_url1=base_url+"media/%s/comments"%(media_id)
         comments_info=requests.get(request_url1).json()
         if comments_info["meta"]["code"]==200:
-            print "Comments:"
+
+            comments_list=[]
             for i in range(len(user_info["data"])):
-                print user_info["data"][i]["text"]+"\n"
+
+                comments_list.append(user_info["data"][i]["text"])
+            return  comments_list
+
+
 
         else:
-           print "rror in connection"
+            print comments_info["meta"]["code"]
+            print "error in connection"
+
+
+def like_recent_post(user_name):
+    user_id=get_user_id(user_name)
+    request_url = base_url +"users/%s/media/recent/?access_token=%s"%(user_id,ACCESS_TOKEN)
+    user_info = requests.get(request_url).json()
+    if user_info["meta"]["code"] == 200:
+        if len(user_info["data"][0]) > 0:
+            image_id = user_info["data"][0]["id"]
+            url=base_url+"media/%s/likes"%(ACCESS_TOKEN)
+            payload={"access_token":ACCESS_TOKEN}
+            like=requests.post(url,payload).json()
+            if like["meta"]["code"]==200:
+                print "Post liked!!"
+            else:
+                print "Error in connection"
+        else:
+            print "No recent post!"
+    else:
+        print "Error in connection"
+
+
+def comment_on_post(user_name):
+    user_id=get_user_id(user_name)
+    request_url = base_url +"users/%s/media/recent/?access_token=%s"%(user_id,ACCESS_TOKEN)
+    user_info = requests.get(request_url).json()
+    if user_info["meta"]["code"] == 200:
+        image_id = user_info["data"][0]["id"]
+        url=base_url+"media/%s/comments"%(image_id)
+        comment_text=raw_input("your comment:")
+        payload={"access_token":ACCESS_TOKEN,"text":comment_text}
+        comment=requests.post(url,payload).json()
+        if comment["meta"]["code"]==200:
+            print "Your comment successfully posted!"
+        else:
+            print "Error in connection"
+
+    else:
+        print "Error in connection"
+
+
+def delete_comment():
+    list=get_comments_on_your_recentpost()
+    inappropriate_words=[]
+    for i in list:
+        pass
+
+
+
+
+
 
 def start_bot():
     while True:
@@ -109,12 +166,12 @@ def start_bot():
         print "d.Get the recent post of a user by username\n"
         print "e.Get the recent media like by the user\n"
         print "f.Comments on your recent post\n"
-        #print "e.Get a list of people who have liked the recent post of a user\n"
-        #print "f.Like the recent post of a user\n"
-        #print "g.Get a list of comments on the recent post of a user\n"
-        #print "h.Make a comment on the recent post of a user\n"
-        #print "i.Delete negative comments from the recent post of a user\n"
-        print "j.Exit\n"
+        print "g.Get a list of comments on the recent post of a user\n"
+        print "h.Like the recent post of a user\n"
+
+        print "i.Make a comment on the recent post of a user\n"
+        print "j.Delete negative comments from the recent post of a user\n"
+        print "k.Exit\n"
 
         choice=raw_input("Enter your choice: ")
         if choice=="a":
@@ -130,7 +187,19 @@ def start_bot():
         elif choice=="e":
             get_recent_media_liked()
         elif choice=="f":
-            get_comments_on_your_recentpost()
+            list=get_comments_on_your_recentpost()
+            print "Comments:"
+            for i in list:
+                print i
+
+
+
+        elif choice=="h":
+            user_name=raw_input("Enter the user-name whose post you want to like:")
+            like_recent_post(user_name)
+        elif choice=="i":
+            user_name=raw_input("Enter the name of the user on whose post you want to comment:")
+            like_recent_post(user_name)
 
         elif choice=="j":
             exit()
