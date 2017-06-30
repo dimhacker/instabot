@@ -18,27 +18,33 @@ def self_info():
 
 def otheruser_info(user_name):
     user_id=get_user_id(user_name)
-    request_url=base_url+"users/%s/?access_token=%s"% (user_id,ACCESS_TOKEN)
-    user_info=requests.get(request_url).json()
-    if user_info["meta"]["code"]==200:
-        if len(user_info["data"])>0:
-            print "Username:%s" % (user_info["data"]["username"])
-            print "Full name:%s" % (user_info["data"]["full_name"])
-            print "User ID:%s" % user_info["data"]["id"]
-            print "Follows:%s"%(user_info["data"]["counts"]["follows"])
-            print "Followed By:%s" % (user_info["data"]["counts"]["followed_by"])
-            print 'No. of posts: %s' % (user_info['data']['counts']['media'])
-        else:
-            "This user doesn't have any data."
+    if user_id== None:
+        print "No such user exists"
     else:
-        print "Error in connecting to web!"
+        request_url=base_url+"users/%s/?access_token=%s"% (user_id,ACCESS_TOKEN)
+        user_info=requests.get(request_url).json()
+        if user_info["meta"]["code"]==200:
+            if len(user_info["data"])>0:
+                print "Username:%s" % (user_info["data"]["username"])
+                print "Full name:%s" % (user_info["data"]["full_name"])
+                print "User ID:%s" % user_info["data"]["id"]
+                print "Follows:%s"%(user_info["data"]["counts"]["follows"])
+                print "Followed By:%s" % (user_info["data"]["counts"]["followed_by"])
+                print 'No. of posts: %s' % (user_info['data']['counts']['media'])
+            else:
+                "This user doesn't have any data."
+        else:
+            print "Error in connecting to web!"
 
 
 def get_user_id(user_name):
     request_url=base_url+"users/search?q=%s&access_token=%s"%(user_name,ACCESS_TOKEN)
     user_info=requests.get(request_url).json()
     if user_info["meta"]["code"]==200:
-        return user_info["data"][0]["id"]
+        if len(user_info["data"]):
+            return user_info["data"][0]["id"]
+        else :
+            return None
 
 
 def get_recent_post_self():
@@ -56,13 +62,31 @@ def get_recent_post_self():
         print "Error in connecting to web!"
 
 
-def get_post_user(user_name):
+def get_media_id(user_name):
     user_id=get_user_id(user_name)
     request_url = base_url +"users/%s/media/recent/?access_token=%s"%(user_id,ACCESS_TOKEN)
     user_info = requests.get(request_url).json()
     if user_info["meta"]["code"] == 200:
         if len(user_info["data"][0]) > 0:
-            image_name = user_info["data"][0]["id"] + ".jpeg"
+            return user_info["data"][0]["id"]
+        else:
+            return None
+    else:
+        print "Error in connection"
+
+
+
+
+
+def get_post_user(user_name):
+
+    user_id=get_user_id(user_name)
+    request_url = base_url +"users/%s/media/recent/?access_token=%s"%(user_id,ACCESS_TOKEN)
+    user_info = requests.get(request_url).json()
+    if user_info["meta"]["code"] == 200:
+        if len(user_info["data"][0]) > 0:
+            image_id=get_media_id(user_name)
+            image_name =  image_id+ ".jpeg"
             image_url = user_info["data"][0]["images"]["standard_resolution"]["url"]
             urllib.urlretrieve(image_url, image_name)
             print "Picture downloaded!!"
@@ -88,16 +112,22 @@ def get_comments_on_your_recentpost():
     user_info = requests.get(request_url).json()
     if user_info["meta"]["code"] == 200:
         media_id=user_info["data"][0]["id"]
-        request_url1=base_url+"media/%s/comments"%(media_id)
+        request_url1=base_url+"media/%s/comments?access_token=%s"%(media_id,ACCESS_TOKEN)
         comments_info=requests.get(request_url1).json()
         if comments_info["meta"]["code"]==200:
 
             comments_list=[]
-            for i in range(len(user_info["data"])):
+            if len(user_info["data"]):
+                print "Comments:"
+                for i in range(len(comments_info["data"])):
+                    print comments_info["data"][i]["text"]
 
-                comments_list.append(user_info["data"][i]["text"])
-            return  comments_list
+                    comments_list.append(comments_info["data"][i]["text"])
 
+
+                return  comments_list
+            else:
+                print "No comments on post!"
 
 
         else:
@@ -106,31 +136,25 @@ def get_comments_on_your_recentpost():
 
 
 def like_recent_post(user_name):
-    user_id=get_user_id(user_name)
-    request_url = base_url +"users/%s/media/recent/?access_token=%s"%(user_id,ACCESS_TOKEN)
-    user_info = requests.get(request_url).json()
-    if user_info["meta"]["code"] == 200:
-        if len(user_info["data"][0]) > 0:
-            image_id = user_info["data"][0]["id"]
-            url=base_url+"media/%s/likes"%(ACCESS_TOKEN)
-            payload={"access_token":ACCESS_TOKEN}
-            like=requests.post(url,payload).json()
-            if like["meta"]["code"]==200:
-                print "Post liked!!"
+
+            image_id = get_media_id(user_name)
+            if image_id==None:
+                print "No recent media of the user"
             else:
-                print "Error in connection"
-        else:
-            print "No recent post!"
-    else:
-        print "Error in connection"
+                url=base_url+"media/%s/likes"%(image_id)
+                payload={"access_token":ACCESS_TOKEN}
+                like=requests.post(url,payload).json()
+                if like["meta"]["code"]==200:
+                    print "Post liked!!"
+                else:
+                    print "Error in connection"
+
+
 
 
 def comment_on_post(user_name):
-    user_id=get_user_id(user_name)
-    request_url = base_url +"users/%s/media/recent/?access_token=%s"%(user_id,ACCESS_TOKEN)
-    user_info = requests.get(request_url).json()
-    if user_info["meta"]["code"] == 200:
-        image_id = user_info["data"][0]["id"]
+
+        image_id = get_media_id(user_name)
         url=base_url+"media/%s/comments"%(image_id)
         comment_text=raw_input("your comment:")
         payload={"access_token":ACCESS_TOKEN,"text":comment_text}
@@ -140,8 +164,6 @@ def comment_on_post(user_name):
         else:
             print "Error in connection"
 
-    else:
-        print "Error in connection"
 
 
 def delete_comment():
@@ -165,13 +187,11 @@ def start_bot():
         print "c.Get your own recent post\n"
         print "d.Get the recent post of a user by username\n"
         print "e.Get the recent media like by the user\n"
-        print "f.Comments on your recent post\n"
-        print "g.Get a list of comments on the recent post of a user\n"
-        print "h.Like the recent post of a user\n"
-
-        print "i.Make a comment on the recent post of a user\n"
-        print "j.Delete negative comments from the recent post of a user\n"
-        print "k.Exit\n"
+        print "f.Get a list of comments on the recent post of a user\n"
+        print "g.Like the recent post of a user\n"
+        print "h.Make a comment on the recent post of a user\n"
+        print "i.Delete negative comments from the recent post of a user\n"
+        print "j.Exit\n"
 
         choice=raw_input("Enter your choice: ")
         if choice=="a":
@@ -188,19 +208,14 @@ def start_bot():
             get_recent_media_liked()
         elif choice=="f":
             list=get_comments_on_your_recentpost()
-            print "Comments:"
-            for i in list:
-                print i
-
-
-
-        elif choice=="h":
+        elif choice=="g":
             user_name=raw_input("Enter the user-name whose post you want to like:")
             like_recent_post(user_name)
-        elif choice=="i":
+        elif choice=="h":
             user_name=raw_input("Enter the name of the user on whose post you want to comment:")
-            like_recent_post(user_name)
-
+            comment_on_post(user_name)
+        elif choice=="i":
+            delete_comment()
         elif choice=="j":
             exit()
 
