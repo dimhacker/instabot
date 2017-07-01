@@ -1,5 +1,9 @@
 import requests,urllib
-from keys import ACCESS_TOKEN
+from keys import ACCESS_TOKEN,USER
+from textblob import TextBlob
+from textblob.sentiments import NaiveBayesAnalyzer
+import matplotlib.pyplot as plt
+
 base_url="https://api.instagram.com/v1/"
 
 def self_info():
@@ -38,16 +42,23 @@ def otheruser_info(user_name):
 
 
 def get_user_id(user_name):
-    request_url=base_url+"users/search?q=%s&access_token=%s"%(user_name,ACCESS_TOKEN)
+    if user_name==USER:
+        request_url = base_url + "users/self/media/recent/?access_token=%s" % (ACCESS_TOKEN)
+
+    else:
+        request_url=base_url+"users/search?q=%s&access_token=%s"%(user_name,ACCESS_TOKEN)
+
     user_info=requests.get(request_url).json()
     if user_info["meta"]["code"]==200:
         if len(user_info["data"]):
             return user_info["data"][0]["id"]
         else :
             return None
+    else:
+        print  "Error in connection"
 
 
-def get_recent_post_self():
+def get_post_self():
     request_url=base_url+"users/self/media/recent/?access_token=%s"%(ACCESS_TOKEN)
     user_info = requests.get(request_url).json()
     if user_info["meta"]["code"] == 200:
@@ -73,6 +84,7 @@ def get_media_id(user_name):
             return None
     else:
         print "Error in connection"
+        return  None
 
 
 
@@ -107,36 +119,35 @@ def get_recent_media_liked():
         print "Your recently liked image downloaded!"
 
 
-def get_comments_on_your_recentpost():
-    request_url=base_url+"users/self/media/recent/?access_token=%s"%(ACCESS_TOKEN)
-    user_info = requests.get(request_url).json()
-    if user_info["meta"]["code"] == 200:
-        media_id=user_info["data"][0]["id"]
-        request_url1=base_url+"media/%s/comments?access_token=%s"%(media_id,ACCESS_TOKEN)
-        comments_info=requests.get(request_url1).json()
-        if comments_info["meta"]["code"]==200:
-
-            comments_list=[]
-            if len(user_info["data"]):
-                print "Comments:"
+def get_comments_on_post(user_name):
+    media_id=get_media_id(user_name)
+    request_url1=base_url+"media/%s/comments?access_token=%s"%(media_id,ACCESS_TOKEN)
+    comments_info=requests.get(request_url1).json()
+    if comments_info["meta"]["code"]==200:
+        comments_list=[]
+        if len(comments_info["data"]):
                 for i in range(len(comments_info["data"])):
-                    print comments_info["data"][i]["text"]
-
-                    comments_list.append(comments_info["data"][i]["text"])
-
-
+                    text=comments_info["data"][i]["text"]
+                    id=comments_info["data"][i]["id"]
+                    comments_list.append([text,id])
                 return  comments_list
-            else:
+        else:
                 print "No comments on post!"
 
 
-        else:
+    else:
             print comments_info["meta"]["code"]
             print "error in connection"
 
 
-def like_recent_post(user_name):
+def display_comments_on_post(user_name):
+    list=get_comments_on_post(user_name)
+    print "Comments:"
+    for i in list:
+        print i[0]
 
+
+def like_recent_post(user_name):
             image_id = get_media_id(user_name)
             if image_id==None:
                 print "No recent media of the user"
@@ -148,8 +159,6 @@ def like_recent_post(user_name):
                     print "Post liked!!"
                 else:
                     print "Error in connection"
-
-
 
 
 def comment_on_post(user_name):
@@ -166,13 +175,52 @@ def comment_on_post(user_name):
 
 
 
-def delete_comment():
-    list=get_comments_on_your_recentpost()
-    inappropriate_words=[]
-    for i in list:
-        pass
+def delete_comment(user_name):
+    media_id = get_media_id(user_name)
+    request_url1 = base_url + "media/%s/comments?access_token=%s" % (media_id, ACCESS_TOKEN)
+    comments_info = requests.get(request_url1).json()
+    if comments_info["meta"]["code"] == 200:
+        comments_list = []
+        if len(comments_info["data"]):
+            for i in range(len(comments_info["data"])):
+                text = comments_info["data"][i]["text"]
+                id = comments_info["data"][i]["id"]
+                comments_list.append([text, id])
+        for i in comments_list:
+            text=TextBlob(i[0],analyzer=NaiveBayesAnalyzer())
+            print  i[0] + " :" + text.sentiment.classification
 
+        for i in comments_list:
+            text = TextBlob(i[0], analyzer=NaiveBayesAnalyzer())
+            if text.sentiment.classification=="neg":
+                comment_id=i[1]
+                request_url=base_url+"media/%s/comments/%s?access_token=%s"%(media_id,comment_id,ACCESS_TOKEN)
+                response=requests.delete(request_url).json()
+                if response["meta"]["code"]==200:
+                    print "Comment deleted!!"
 
+def display_pie_chart(user_name):
+    comments_list=get_comments_on_post(user_name)
+    pos=0
+    neg=0
+    for i in comments_list:
+        text = TextBlob(i[0], analyzer=NaiveBayesAnalyzer())
+        if text.sentiment.classification == "neg":
+            neg+=1
+        elif text.sentiment.classification == "pos":
+            pos+=1
+
+    labels = 'Positive Comments','Negative Comments'
+    sizes = [pos,neg]
+    colors = ["green","red"]
+    explode = (0.1, 0)  # explode 1st slice
+
+    # Plot
+    plt.pie(sizes, explode=explode, labels=labels, colors=colors,
+            autopct='%1.1f%%', shadow=True, startangle=140)
+
+    plt.axis('equal')
+    plt.show()
 
 
 
@@ -191,7 +239,8 @@ def start_bot():
         print "g.Like the recent post of a user\n"
         print "h.Make a comment on the recent post of a user\n"
         print "i.Delete negative comments from the recent post of a user\n"
-        print "j.Exit\n"
+        print "j.To display a pie chart displaying postive and negative comments\n"
+        print "k.Exit\n"
 
         choice=raw_input("Enter your choice: ")
         if choice=="a":
@@ -200,24 +249,30 @@ def start_bot():
             insta_username = raw_input("Enter the username of the user: ")
             otheruser_info(insta_username)
         elif choice=="c":
-            get_recent_post_self()
+            get_post_self()
         elif choice=="d":
             insta_username = raw_input("Enter the username of the user: ")
             get_post_user(insta_username)
         elif choice=="e":
             get_recent_media_liked()
         elif choice=="f":
-            list=get_comments_on_your_recentpost()
+            user_name=raw_input("Enter the user name: ")
+            display_comments_on_post(user_name)
         elif choice=="g":
-            user_name=raw_input("Enter the user-name whose post you want to like:")
+            user_name=raw_input("Enter the user-name whose post you want to like: ")
             like_recent_post(user_name)
         elif choice=="h":
-            user_name=raw_input("Enter the name of the user on whose post you want to comment:")
+            user_name=raw_input("Enter the name of the user on whose post you want to comment: ")
             comment_on_post(user_name)
         elif choice=="i":
-            delete_comment()
+            user_name=raw_input("Enter the user-name: ")
+            delete_comment(user_name)
         elif choice=="j":
+            user_name=raw_input("Enter the username: ")
+            display_pie_chart(user_name)
+        elif choice=="k":
             exit()
+
 
 
 start_bot()
