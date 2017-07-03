@@ -1,5 +1,5 @@
 import requests,urllib
-from keys import ACCESS_TOKEN,USER
+from keys import ACCESS_TOKEN,USER,friend_users
 from textblob import TextBlob
 from textblob.sentiments import NaiveBayesAnalyzer
 import matplotlib.pyplot as plt
@@ -162,7 +162,6 @@ def like_recent_post(user_name):
 
 
 def comment_on_post(user_name):
-
         image_id = get_media_id(user_name)
         url=base_url+"media/%s/comments"%(image_id)
         comment_text=raw_input("your comment:")
@@ -186,13 +185,10 @@ def delete_comment(user_name):
                 text = comments_info["data"][i]["text"]
                 id = comments_info["data"][i]["id"]
                 comments_list.append([text, id])
-        for i in comments_list:
-            text=TextBlob(i[0],analyzer=NaiveBayesAnalyzer())
-            print  i[0] + " :" + text.sentiment.classification
 
         for i in comments_list:
-            text = TextBlob(i[0], analyzer=NaiveBayesAnalyzer())
-            if text.sentiment.classification=="neg":
+            text = TextBlob(i[0])
+            if text.sentiment.polarity < 0:
                 comment_id=i[1]
                 request_url=base_url+"media/%s/comments/%s?access_token=%s"%(media_id,comment_id,ACCESS_TOKEN)
                 response=requests.delete(request_url).json()
@@ -203,24 +199,70 @@ def display_pie_chart(user_name):
     comments_list=get_comments_on_post(user_name)
     pos=0
     neg=0
+    neutral=0
     for i in comments_list:
-        text = TextBlob(i[0], analyzer=NaiveBayesAnalyzer())
-        if text.sentiment.classification == "neg":
+        text = TextBlob(i[0])
+        if text.sentiment.polarity < 0:
             neg+=1
-        elif text.sentiment.classification == "pos":
+        elif text.sentiment.polarity> 0:
             pos+=1
+        elif text.sentiment.polarity==0:
+            neutral+=0
 
-    labels = 'Positive Comments','Negative Comments'
-    sizes = [pos,neg]
-    colors = ["green","red"]
-    explode = (0.1, 0)  # explode 1st slice
+    labels = 'Positive Comments','Negative Comments','Neutral Comments'
+    sizes = [pos,neg,neutral]
+    colors = ["green","red","blue"]
+    explode = (0, 0,0.1)  # explode 1st slice
 
     # Plot
     plt.pie(sizes, explode=explode, labels=labels, colors=colors,
             autopct='%1.1f%%', shadow=True, startangle=140)
-
+    plt.title("Comparisons of comments on post of %s"%(user_name))
     plt.axis('equal')
     plt.show()
+
+
+def posting_add():
+    for user in friend_users:
+        user_id=get_user_id(user)
+        request_url = base_url + "users/%s/media/recent/?access_token=%s" % (user_id, ACCESS_TOKEN)
+        user_info = requests.get(request_url).json()
+        if user_info["meta"]["code"] == 200:
+            if len(user_info["data"]) > 0:
+                caption_text= user_info["data"][0]["caption"]["text"]
+
+                if TextBlob(caption_text).upper().find("PIZZA HUT")>-1:
+                    post_text="Visit pizza hut and get 50% off"
+                    comment_ad(post_text,user)
+
+                elif TextBlob(caption_text).upper().find("DOMINO'S PIZZA")>-1:
+                    post_text = "Visit dominos and get 50% off"
+                    comment_ad(post_text,user)
+
+                elif TextBlob(caption_text).upper().find("SAM'S PIZZA")>-1:
+                    post_text = "Visit sam's pizza and get 50% off"
+                    comment_ad(post_text,user)
+
+
+                elif TextBlob(caption_text).upper().find("LA PINO'S PIZZA")>-1 :
+                    post_text = "Visit la pino's pizza and get 50% off"
+                    comment_ad(post_text,user)
+
+
+        else:
+            print "Error in connection"
+
+
+def comment_ad(post_text,user):
+    image_id = get_media_id(user)
+    url = base_url + "media/%s/comments" % (image_id)
+    comment_text = post_text
+    payload = {"access_token": ACCESS_TOKEN, "text": comment_text}
+    comment = requests.post(url, payload).json()
+    if comment["meta"]["code"] == 200:
+        print "Your ad successfully posted!"
+    else:
+        print "Error in connection"
 
 
 
@@ -239,8 +281,9 @@ def start_bot():
         print "g.Like the recent post of a user\n"
         print "h.Make a comment on the recent post of a user\n"
         print "i.Delete negative comments from the recent post of a user\n"
-        print "j.To display a pie chart displaying postive and negative comments\n"
-        print "k.Exit\n"
+        print "j.To display a pie chart displaying positive and negative comments\n"
+        print "k.To comment ad of pizza offers on the post of the users\n"                 #depending on caption of post
+        print "l.Exit\n"
 
         choice=raw_input("Enter your choice: ")
         if choice=="a":
@@ -271,8 +314,11 @@ def start_bot():
             user_name=raw_input("Enter the username: ")
             display_pie_chart(user_name)
         elif choice=="k":
+            posting_add()
+        elif choice=="l":
             exit()
 
 
 
-start_bot()
+#start_bot()
+posting_add()
