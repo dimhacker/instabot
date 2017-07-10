@@ -1,12 +1,16 @@
 import requests,urllib
 from keys import ACCESS_TOKEN,USER,friend_users
 from textblob import TextBlob
+from datetime import timedelta,datetime
+from wordcloud import WordCloud
 from textblob.sentiments import NaiveBayesAnalyzer
 import matplotlib.pyplot as plt
+lat=30.62584
+long=76.99376
 
 base_url="https://api.instagram.com/v1/"
 
-def self_info():
+def self_info():                                            #getting basic information about self
     request_url=base_url+"users/self/?access_token=%s"  %ACCESS_TOKEN
     user_info=requests.get(request_url).json()
     if user_info["meta"]["code"]==200:
@@ -20,7 +24,7 @@ def self_info():
         print "No such user exists!"
 
 
-def otheruser_info(user_name):
+def otheruser_info(user_name):                              #getting basic information of friend users
     user_id=get_user_id(user_name)
     if user_id== None:
         print "No such user exists"
@@ -58,7 +62,7 @@ def get_user_id(user_name):
         print  "Error in connection"
 
 
-def get_post_self():
+def get_post_self():                    #downloading recent post of self
     request_url=base_url+"users/self/media/recent/?access_token=%s"%(ACCESS_TOKEN)
     user_info = requests.get(request_url).json()
     if user_info["meta"]["code"] == 200:
@@ -73,7 +77,7 @@ def get_post_self():
         print "Error in connecting to web!"
 
 
-def get_media_id(user_name):
+def get_media_id(user_name):                #getting recent media id of user
     user_id=get_user_id(user_name)
     request_url = base_url +"users/%s/media/recent/?access_token=%s"%(user_id,ACCESS_TOKEN)
     user_info = requests.get(request_url).json()
@@ -90,13 +94,13 @@ def get_media_id(user_name):
 
 
 
-def get_post_user(user_name):
-
-    user_id=get_user_id(user_name)
-    request_url = base_url +"users/%s/media/recent/?access_token=%s"%(user_id,ACCESS_TOKEN)
+def get_post_user(user_name):                   #downloading recent post of the user
+    user_id = get_user_id(user_name)
+    request_url = base_url + "users/%s/media/recent/?access_token=%s" % (user_id, ACCESS_TOKEN)
     user_info = requests.get(request_url).json()
     if user_info["meta"]["code"] == 200:
         if len(user_info["data"][0]) > 0:
+
             image_id=get_media_id(user_name)
             image_name =  image_id+ ".jpeg"
             image_url = user_info["data"][0]["images"]["standard_resolution"]["url"]
@@ -109,7 +113,7 @@ def get_post_user(user_name):
         print "Error in connecting to web!"
 
 
-def get_recent_media_liked():
+def get_recent_media_liked():               #downloading the recent post liked by the user
     request_url=base_url+"users/self/media/liked?access_token=%s"%ACCESS_TOKEN
     media_info=requests.get(request_url).json()
     if media_info["meta"]["code"]==200:
@@ -119,7 +123,7 @@ def get_recent_media_liked():
         print "Your recently liked image downloaded!"
 
 
-def get_comments_on_post(user_name):
+def get_comments_on_post(user_name):                #getting recent post comments
     media_id=get_media_id(user_name)
     request_url1=base_url+"media/%s/comments?access_token=%s"%(media_id,ACCESS_TOKEN)
     comments_info=requests.get(request_url1).json()
@@ -147,7 +151,7 @@ def display_comments_on_post(user_name):
         print i[0]
 
 
-def like_recent_post(user_name):
+def like_recent_post(user_name):                #hit like on the recent post of user
             image_id = get_media_id(user_name)
             if image_id==None:
                 print "No recent media of the user"
@@ -161,7 +165,7 @@ def like_recent_post(user_name):
                     print "Error in connection"
 
 
-def comment_on_post(user_name):
+def comment_on_post(user_name):                 #commenting on the recent post of the user
         image_id = get_media_id(user_name)
         url=base_url+"media/%s/comments"%(image_id)
         comment_text=raw_input("your comment:")
@@ -174,7 +178,7 @@ def comment_on_post(user_name):
 
 
 
-def delete_comment(user_name):
+def delete_comment(user_name):              #deleting negative comments on the recent post of user using polarity attribute
     media_id = get_media_id(user_name)
     request_url1 = base_url + "media/%s/comments?access_token=%s" % (media_id, ACCESS_TOKEN)
     comments_info = requests.get(request_url1).json()
@@ -195,7 +199,7 @@ def delete_comment(user_name):
                 if response["meta"]["code"]==200:
                     print "Comment deleted!!"
 
-def display_pie_chart(user_name):
+def display_pie_chart(user_name):                       #displaying pie chart comparing positivty ,negativity and neutrality
     comments_list=get_comments_on_post(user_name)
     pos=0
     neg=0
@@ -229,28 +233,27 @@ def posting_add():
         user_info = requests.get(request_url).json()
         if user_info["meta"]["code"] == 200:
             if len(user_info["data"]) > 0:
-                caption_text= user_info["data"][0]["caption"]["text"]
+                if user_info["data"][0]["caption"]["text"]!=None:
+                    caption_text= user_info["data"][0]["caption"]["text"]
+                    if TextBlob(caption_text).upper().find("PIZZA HUT")>-1:
+                        post_text="Visit pizza hut and get 50% off"
+                        comment_ad(post_text,user)
 
-                if TextBlob(caption_text).upper().find("PIZZA HUT")>-1:
-                    post_text="Visit pizza hut and get 50% off"
-                    comment_ad(post_text,user)
+                    elif TextBlob(caption_text).upper().find("DOMINO'S PIZZA")>-1:
+                        post_text = "Visit dominos and get 50% off"
+                        comment_ad(post_text,user)
 
-                elif TextBlob(caption_text).upper().find("DOMINO'S PIZZA")>-1:
-                    post_text = "Visit dominos and get 50% off"
-                    comment_ad(post_text,user)
-
-                elif TextBlob(caption_text).upper().find("SAM'S PIZZA")>-1:
-                    post_text = "Visit sam's pizza and get 50% off"
-                    comment_ad(post_text,user)
-
-
-                elif TextBlob(caption_text).upper().find("LA PINO'S PIZZA")>-1 :
-                    post_text = "Visit la pino's pizza and get 50% off"
-                    comment_ad(post_text,user)
+                    elif TextBlob(caption_text).upper().find("SAM'S PIZZA")>-1:
+                        post_text = "Visit sam's pizza and get 50% off"
+                        comment_ad(post_text,user)
 
 
-        else:
-            print "Error in connection"
+                    elif TextBlob(caption_text).upper().find("LA PINO'S PIZZA")>-1 :
+                        post_text = "Visit la pino's pizza and get 50% off"
+                        comment_ad(post_text,user)
+
+
+
 
 
 def comment_ad(post_text,user):
@@ -265,6 +268,66 @@ def comment_ad(post_text,user):
         print "Error in connection"
 
 
+
+def getting_nearby_location_id(lat,long):
+    request_url="https://api.instagram.com/v1/locations/search?lat=%f&lng=%f&access_token=%s"%(lat,long,ACCESS_TOKEN)
+    response=requests.get(request_url).json()
+    if response["meta"]["code"]==200:
+        location_ids = []
+        for i in range(len(response["data"])):
+            location_ids.append(response["data"][i]["id"])
+            print response["data"][i]["id"] + " : " + response["data"][i]["name"]
+        return  location_ids
+
+
+def getting_pictures_of_calamities():
+    location_ids=getting_nearby_location_id(lat,long)
+    for user in friend_users:
+        user_id = get_user_id(user)
+        request_url = base_url + "users/%s/media/recent/?access_token=%s" % (user_id, ACCESS_TOKEN)
+        user_info = requests.get(request_url).json()
+        if user_info["meta"]["code"] == 200:
+            if len(user_info["data"]) > 0:
+                captions_list=[]
+                for i in range(len(user_info["data"])):
+                    time_before_a_day = int((datetime.utcnow() - timedelta(hours=24)).strftime("%s"))
+                    current_time = int(datetime.utcnow().strftime("%s"))                                 #checking created time and location-id
+                    if user_info["data"][i]["location"]["id"] in location_ids and (int(user_info["data"][i]["created_time"])<=current_time and int(user_info["data"][i]["created_time"])>=time_before_a_day):
+                        caption=user_info["data"][i]["caption"]["text"]
+                        check=check_caption_for_calamity(caption)
+                        if check==True:
+                            media_id= user_info["data"][i]["id"]
+                            image_name = media_id + ".jpeg"
+                            image_url = user_info["data"][0]["images"]["standard_resolution"]["url"]
+                            urllib.urlretrieve(image_url, image_name)
+                            print "Picture downloaded!!"
+        else:
+            print "error in connection"
+
+
+
+def check_caption_for_calamity(caption):
+    calamity=["earthquake","tsunami","landslide"]
+    words=TextBlob(caption).words.lower()
+    for i in calamity:
+        if i in words:
+            return True
+        else:
+            return False
+
+def making_wordcloud():
+    for user in friend_users:
+        f=open("comments.txt","w")
+        comments_list=get_comments_on_post(user)
+        for i in comments_list:
+            f.write(i)
+
+    text=f.read()
+    wordcloud = WordCloud(max_font_size=40).generate(text)
+    plt.figure()
+    plt.imshow(wordcloud, interpolation="bilinear")
+    plt.axis("off")
+    plt.show()
 
 
 def start_bot():
@@ -283,7 +346,9 @@ def start_bot():
         print "i.Delete negative comments from the recent post of a user\n"
         print "j.To display a pie chart displaying positive and negative comments\n"
         print "k.To comment ad of pizza offers on the post of the users\n"                 #depending on caption of post
-        print "l.Exit\n"
+        print "l.To get pictures of posts using geotags\n"
+        print "m.To show a wordcloud based on the comments on the posts of users\n"
+        print "n.Exit\n"
 
         choice=raw_input("Enter your choice: ")
         if choice=="a":
@@ -307,18 +372,20 @@ def start_bot():
         elif choice=="h":
             user_name=raw_input("Enter the name of the user on whose post you want to comment: ")
             comment_on_post(user_name)
-        elif choice=="i":
+        elif choice=="i":                                                 #deleting negative comments on recent post
             user_name=raw_input("Enter the user-name: ")
             delete_comment(user_name)
         elif choice=="j":
-            user_name=raw_input("Enter the username: ")
+            user_name=raw_input("Enter the user-name: ")                #displaying pie chart comparing comments on recent post
             display_pie_chart(user_name)
-        elif choice=="k":
+        elif choice=="k":                                                  #posting add on recent post
             posting_add()
         elif choice=="l":
+            getting_pictures_of_calamities()                    #analysing all users and posts
+        elif choice=="m":
+            making_wordcloud()
+        elif choice == "n":
             exit()
 
 
-
-#start_bot()
-posting_add()
+start_bot()
